@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use String::Cursor;
+
+my ( $string );
+
+$string = String::Cursor->new( data => join '', 'a' .. 'z' );
+
+print $string->data, "\n";
+print $string->move( qr/b/ )->position, "\n";
+print $string->move( qr/b/ )->position, "\n";
+print $string->reset->move( qr/b/ )->move( qr/../ )->position, "\n";
+print $string->move( +3 )->position, "\n";

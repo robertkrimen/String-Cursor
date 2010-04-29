@@ -1,0 +1,26 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+my ( $data );
+
+$data = "abcdefghi";
+
+#warn $data =~ m/f/;
+#warn "$-[0] $+[0]\n";
+
+pos $data = 4;
+
+scalar $data =~ m/\G./;
+warn pos $data;
+
+warn scalar $data =~ m/\G.*?(hi)/;
+warn "$-[1] $+[1]\n";
+warn pos $data;
+
+#pos $data = 2;
+
+#warn $data =~ m/\G(.)/;
+#warn "$-[0] $+[0]\n";
+
