@@ -10,7 +10,13 @@ my ( $string );
 $string = String::Cursor->new( data => join '', 'a' .. 'z' );
 
 print $string->data, "\n";
-print $string->move( qr/b/ )->position, "\n";
-print $string->move( qr/b/ )->position, "\n";
-print $string->reset->move( qr/b/ )->move( qr/../ )->position, "\n";
-print $string->move( +3 )->position, "\n";
+$string->move( qr/b/ );
+print $string->tail, "\n";
+$string->move( qr/b/ );
+print $string->tail, "\n";
+$string->reset->move( qr/b/ );
+print $string->tail, "\n";
+$string->move( qr/../ );
+print $string->tail, "\n";
+$string->move( +3 );
+print $string->tail, "\n";
