@@ -18,6 +18,11 @@ sub _build__cursor { String::Cursor::Mark->new };
 has _mark => qw/ is ro lazy_build 1 isa HashRef /;
 sub _build__mark { {} }
 
+sub BUILD {
+    my $self = shift;
+    $self->mark;
+}
+
 sub reset {
     my $self = shift;
     $self->head( 0 );
@@ -41,6 +46,14 @@ sub mark {
     return $self;
 }
 
+sub recall {
+    my $self = shift;
+    my $name;
+    $name = shift if @_;
+    $name = '_'  unless defined $name;
+    return $self->_mark->{$name};
+}
+
 sub find {
     my $self = shift;
     my $target = shift;
@@ -48,7 +61,7 @@ sub find {
     my $data = $self->data;
     return if $self->length <= ( my $from = 1 + $self->tail );
     pos $data = $from;
-    return unless scalar $data =~ m/\G.*?($target)/;
+    return unless scalar $data =~ m/\G[[:ascii:]]*?($target)/;
     $self->cursor( $-[1], $+[1] - 1 );
     return 1;
 }
@@ -109,19 +122,57 @@ sub offset {
 sub index {
     my $self = shift;
     my $target = shift;
-    return index $self->data, $target, $self->tail;
+    return $self->length if $self->length <= ( my $from = 1 + $self->tail );
+    return index $self->data, $target, $from;
 }
 
 sub rindex {
     my $self = shift;
     my $target = shift;
-    return rindex $self->data, $target, $self->head;
+    return $self->_rindex( $target, $self->head );
+}
+
+sub _rindex {
+    my $self = shift;
+    my $target = shift;
+    my $from = shift;
+    return 0 if 0 >= ( $from -= 1 );
+    return rindex $self->data, $target, $from;
 }
 
 sub substring {
     my $self = shift;
     my ( $head, $tail ) = ( $self->head, $self->tail );
     return substr $self->data, $head, 1 + $tail - $head;
+}
+
+sub slice {
+    my $self = shift;
+
+    my $last = $self->recall;
+    my $cursor = $self->cursor;
+
+    my $data = $self->data;
+
+    my ( $head, $tail );
+
+    $head = $self->_rindex( "\n", $last->head );
+    # TODO What if "\n" are head and tail, respectively?
+    if ( "\n" eq substr $data, $last->head, 1 ) {
+        # Original mark was "\n"
+    }
+    elsif ( $head == 0 && ( "\n" ne substr $data, 0, 1 ) ) {
+        # Did not find "\n" before beginning of $data
+    }
+    else {
+        $head += 1;
+    }
+
+    $tail = $self->index( "\n" );
+
+    my $slice = substr $self->data, $head, $tail;
+
+    return $slice;
 }
 
 sub up {
