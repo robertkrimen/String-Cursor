@@ -6,6 +6,8 @@ use warnings;
 
 use Any::Moose;
 
+use Scalar::Util qw/ looks_like_number /;
+
 has data => qw/ is ro lazy_build 1 isa Str /;
 sub _build_data { '' }
 
@@ -152,8 +154,6 @@ sub _oslice_vector ($$$) {
     return ( $left, $right );
 }
 
-use Scalar::Util qw/ looks_like_number /;
-
 sub normalize_position {
     my $self = $_[0];
     my $position = $_[1];
@@ -254,6 +254,21 @@ sub up {
 sub down {
     my $self = shift;
     $self->head( $self->tail );
+}
+
+sub skip_until {
+    my $self = shift;
+    my $target = shift;
+    return unless $self->find( $target );
+    $self->mark;
+    return 1;
+}
+
+sub read_until {
+    my $self = shift;
+    my $target = shift;
+    return unless $self->find( $target );
+    return $self->oslice;
 }
 
 package String::Cursor::Mark;
