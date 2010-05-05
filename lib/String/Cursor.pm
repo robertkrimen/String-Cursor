@@ -122,44 +122,17 @@ sub offset {
 };
 *shift = \&shift;
 
-#sub index {
-#    my $self = shift;
-#    my $target = shift;
-#    return $self->length if $self->length <= ( my $from = 1 + $self->tail );
-#    return index $self->data, $target, $from;
-#}
-
-#sub rindex {
-#    my $self = shift;
-#    my $target = shift;
-#    return $self->_rindex( $target, $self->head );
-#}
-
-#sub _rindex {
-#    my $self = shift;
-#    my $target = shift;
-#    my $from = shift;
-#    return 0 if 0 >= ( $from -= 1 );
-#    return rindex $self->data, $target, $from;
-#}
-
-sub substring {
-    my $self = shift;
-    my ( $head, $tail ) = ( $self->head, $self->tail );
-    return substr $self->data, $head, 1 + $tail - $head;
-}
-
 sub _index ($$$) {
-    my $index = index $$_[0], $_[1], $_[2];
+    my $index = index ${ $_[0] }, $_[1], $_[2];
     return -1 == $index ? length $$_[0] : $index;
 }
 
 sub _rindex ($$$) {
-    my $index = rindex $$_[0], $_[1], $_[2];
+    my $index = rindex ${ $_[0] }, $_[1], $_[2];
     return -1 == $index ? 0 : $index;
 }
 
-sub _oslice_frame ($$$) {
+sub _oslice_vector ($$$) {
     my ( $data, $head, $tail ) = @_;
     my $length = length $$data;
 
@@ -249,34 +222,28 @@ sub frame2vector {
     return ( $v0, $v1 );
 }
 
+sub oslice {
+    my $self = shift;
+    my $frame = shift;
+
+    $frame = [ $self->bang_mark, $self->at_mark ] unless defined $frame;
+    my ( $head, $tail ) = $self->frame2vector( $frame );
+    ( $head, $tail ) = _oslice_vector \$self->data, $head, $tail;
+    return substr $self->data, $head, 1 + $tail - $head;
+}
 
 sub slice {
     my $self = shift;
+    return $self->oslice( @_ );
+}
 
-    my $last = $self->recall;
-    my $cursor = $self->cursor;
+sub islice {
+    my $self = shift;
+    my $frame = shift;
 
-    my $data = $self->data;
-
-    my ( $head, $tail );
-
-    $head = $self->_rindex( "\n", $last->head );
-    # TODO What if "\n" are head and tail, respectively?
-    if ( "\n" eq substr $data, $last->head, 1 ) {
-        # Original mark was "\n"
-    }
-    elsif ( $head == 0 && ( "\n" ne substr $data, 0, 1 ) ) {
-        # Did not find "\n" before beginning of $data
-    }
-    else {
-        $head += 1;
-    }
-
-    $tail = $self->index( "\n" );
-
-    my $slice = substr $self->data, $head, $tail;
-
-    return $slice;
+    $frame = [ $self->bang_mark, $self->at_mark ] unless defined $frame;
+    my ( $head, $tail ) = $self->frame2vector( $frame );
+    return substr $self->data, $head, 1 + $tail - $head;
 }
 
 sub up {
