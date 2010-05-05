@@ -8,37 +8,52 @@ plan 'no_plan';
 
 use String::Cursor;
 
-my ( $string );
+my ( $s0, $v0, $p0 );
 
-$string = String::Cursor->new( data => join '', 'a' .. 'z' );
+$s0 = String::Cursor->new( data => join '', 'a' .. 'z' );
 
 sub o0 () {
-    diag $string->head, " ", $string->tail, ": ", $string->substring;
+    diag $s0->head, " ", $s0->tail, ": ", $s0->substring;
 }
 
 
-diag $string->data, "\n";
+diag $s0->data, "\n";
 o0;
 
-$string->find( qr/b/ );
+$s0->find( qr/b/ );
 o0;
 
-$string->find( qr/b/ );
+$s0->find( qr/b/ );
 o0;
 
-$string->reset->find( qr/b/ );
+$s0->reset->find( qr/b/ );
 o0;
 
-$string->find( qr/../ );
+$s0->find( qr/..../ );
 o0;
 
-$string->shift( 3 );
+$v0 = [ $s0->frame2vector( [qw/ ! @ /] ) ];
+cmp_deeply( $v0, [qw/ 0 5 /] );
+
+$v0 = [ $s0->frame2vector( '@' ) ];
+cmp_deeply( $v0, [qw/ 2 5 /] );
+
+$v0 = [ $s0->frame2vector( '!' ) ];
+cmp_deeply( $v0, [qw/ 0 0 /] );
+
+$v0 = [ $s0->frame2vector( '@<-@>' ) ];
+cmp_deeply( $v0, [qw/ 2 5 /] );
+
+$s0->shift( 3 );
 o0;
 
-$string->offset( +3 );
+$s0->offset( +3 );
 o0;
 
-$string = String::Cursor->new( data => <<_END_ );
+$v0 = [ $s0->frame2vector( [qw/ ! @ /] ) ];
+cmp_deeply( $v0, [qw/ 0 11 /] );
+
+$s0 = String::Cursor->new( data => <<_END_ );
 
     abcdefghijklmnopqrstuvwxyz
 
@@ -50,15 +65,21 @@ qwerty
 
 _END_
 
-$string->find( qr/b/ );
+$s0->find( qr/b/ );
 o0;
-diag scalar $string->slice;
 
-$string->find( qr/2 3/ );
-o0;
-diag scalar $string->slice;
+$v0 = [ $s0->frame2vector( [qw/ ! @ /] ) ];
+cmp_deeply( $v0, [qw/ 0 6 /] );
 
-$string->reset->offset( 1 )->mark->find( qr/b/ );
+__END__
+
+diag scalar $s0->slice;
+
+$s0->find( qr/2 3/ );
 o0;
-diag scalar $string->slice;
-diag scalar $string->substring;
+diag scalar $s0->slice;
+
+$s0->reset->offset( 1 )->mark->find( qr/b/ );
+o0;
+diag scalar $s0->slice;
+diag scalar $s0->subs0;

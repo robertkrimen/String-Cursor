@@ -12,15 +12,18 @@ sub _build_data { '' }
 has length => qw/ is ro lazy_build 1 isa Int /;
 sub _build_length { length shift->data }
 
-has _cursor => qw/ is ro lazy_build 1 isa String::Cursor::Mark /, handles => [qw/ head tail /];
-sub _build__cursor { String::Cursor::Mark->new };
-
 has _mark => qw/ is ro lazy_build 1 isa HashRef /;
-sub _build__mark { {} }
+sub _build__mark { { '@' => String::Cursor::Mark->new } }
+
+sub bang_mark { $_[0]->_mark->{'!'} }
+sub at_mark { $_[0]->_mark->{'@'} }
+sub head { shift->at_mark->head( @_ ) }
+sub tail { shift->at_mark->tail( @_ ) }
 
 sub BUILD {
     my $self = shift;
-    $self->mark;
+    $self->mark( '!' );
+    $self->mark( '@' );
 }
 
 sub reset {
@@ -32,8 +35,8 @@ sub reset {
 
 sub cursor {
     my $self = shift;
-    return $self->_cursor unless @_;
-    $self->_cursor->set( @_ );
+    return $self->_at_mark unless @_;
+    $self->at_mark->set( @_ );
     return $self;
 }
 
@@ -41,8 +44,8 @@ sub mark {
     my $self = shift;
     my $name;
     $name = shift if @_;
-    $name = '_'  unless defined $name;
-    $self->_mark->{$name} = $self->cursor->copy;
+    $name = '!'  unless defined $name;
+    $self->_mark->{$name} = $self->at_mark->copy;
     return $self;
 }
 
@@ -50,7 +53,7 @@ sub recall {
     my $self = shift;
     my $name;
     $name = shift if @_;
-    $name = '_'  unless defined $name;
+    $name = '!'  unless defined $name;
     return $self->_mark->{$name};
 }
 
@@ -119,32 +122,133 @@ sub offset {
 };
 *shift = \&shift;
 
-sub index {
-    my $self = shift;
-    my $target = shift;
-    return $self->length if $self->length <= ( my $from = 1 + $self->tail );
-    return index $self->data, $target, $from;
-}
+#sub index {
+#    my $self = shift;
+#    my $target = shift;
+#    return $self->length if $self->length <= ( my $from = 1 + $self->tail );
+#    return index $self->data, $target, $from;
+#}
 
-sub rindex {
-    my $self = shift;
-    my $target = shift;
-    return $self->_rindex( $target, $self->head );
-}
+#sub rindex {
+#    my $self = shift;
+#    my $target = shift;
+#    return $self->_rindex( $target, $self->head );
+#}
 
-sub _rindex {
-    my $self = shift;
-    my $target = shift;
-    my $from = shift;
-    return 0 if 0 >= ( $from -= 1 );
-    return rindex $self->data, $target, $from;
-}
+#sub _rindex {
+#    my $self = shift;
+#    my $target = shift;
+#    my $from = shift;
+#    return 0 if 0 >= ( $from -= 1 );
+#    return rindex $self->data, $target, $from;
+#}
 
 sub substring {
     my $self = shift;
     my ( $head, $tail ) = ( $self->head, $self->tail );
     return substr $self->data, $head, 1 + $tail - $head;
 }
+
+sub _index ($$$) {
+    my $index = index $$_[0], $_[1], $_[2];
+    return -1 == $index ? length $$_[0] : $index;
+}
+
+sub _rindex ($$$) {
+    my $index = rindex $$_[0], $_[1], $_[2];
+    return -1 == $index ? 0 : $index;
+}
+
+sub _oslice_frame ($$$) {
+    my ( $data, $head, $tail ) = @_;
+    my $length = length $$data;
+
+    my $left = _rindex $data, "\n", $head;
+    my $right = _index $data, "\n", $tail;
+    
+    if ( "\n" eq substr $$data, $head, 1 ) {
+        # Original mark was "\n"
+    }
+    elsif ( $left == 0 && ( "\n" ne substr $$data, 0, 1 ) ) {
+        # Did not find "\n" before beginning of $data
+    }
+    else {
+        $left += 1;
+    }
+
+    return ( $left, $right );
+}
+
+use Scalar::Util qw/ looks_like_number /;
+
+sub normalize_position {
+    my $self = $_[0];
+    my $position = $_[1];
+
+    return 0 unless $position;
+
+    my $length = $self->length;
+    $position = $length + $position if 0 > $position;
+    return $position >= $length ? $length - 1 : $position;
+}
+
+sub mark2position {
+    my $self = $_[0];
+    my $mark = $_[1];
+    my $lean = $_[2]; # < or >
+
+    die "Missing mark" unless defined $mark;
+
+    if ( blessed $mark ) {
+    }
+    elsif ( looks_like_number $mark ) {
+        return $self->normalize_position( $mark );
+    }
+    elsif ( $mark =~ m/([!@]|\w+)[<>]?/ ) {
+        $mark = $self->recall( $1 );
+        $lean = $2 if defined $2;
+    }
+    else {
+        die "Invalid mark ($mark)";
+    }
+
+    die "Missing lean" unless defined $lean;
+
+    if      ( $lean eq '<' )    { return $mark->head }
+    elsif   ( $lean eq '>' )    { return $mark->tail }
+    else                        { die "Invalid lean ($lean)" }
+}
+
+sub frame2vector {
+    my $self = $_[0];
+    my $frame = $_[1];
+
+    $frame = '' unless defined $frame && length $frame;
+    
+    my ( $left, $right );
+    if ( blessed $frame ) { # Just a mark
+        ( $left, $right ) = ( $frame, $frame );
+    }
+    elsif ( ref $frame eq 'ARRAY' ) {
+        ( $left, $right ) = @$frame;
+    }
+    elsif ( $frame =~ m/([!@\w+<>]*)?(?:-([!@\w+<>]*))?/ ) {
+        ( $left, $right ) = ( $1, $2 );
+        $right = $left unless defined $right;
+    }
+    else {
+        die "Invalid frame ($frame)";
+    }
+    
+    $left = '!' unless defined $left;
+    $right = '@' unless defined $right;
+
+    my $v0 = $self->mark2position( $left, '<' );
+    my $v1 = $self->mark2position( $right, '>' );
+
+    return ( $v0, $v1 );
+}
+
 
 sub slice {
     my $self = shift;
